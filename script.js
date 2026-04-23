@@ -1,10 +1,12 @@
 // ======================= ГЛОБАЛЬНЫЕ ДАННЫЕ И НАСТРОЙКИ =======================
 let tableData = [];
-let certConfig = { 
-    align: 'center', 
-    width: 297, 
-    height: 210, 
+let certConfig = {
+    align: 'center',
+    width: 297,
+    height: 210,
     bgImage: null,
+    participantBg: null,  // Рамка для сертификата участника
+    diplomaBg: null,      // Рамка для диплома
     colors: {
         title: '#2c3e50',
         name: '#2980b9',
@@ -12,6 +14,7 @@ let certConfig = {
         footer: '#777777'
     }
 };
+let currentTemplate = 'participant'; // 'participant' или 'diploma'
 let currentPage = 0;
 const rowsPerPage = 10;
 
@@ -46,7 +49,7 @@ function syncColorPickersFromConfig() {
     const nameColorVal = document.getElementById('nameColorVal');
     const bodyColorVal = document.getElementById('bodyColorVal');
     const footerColorVal = document.getElementById('footerColorVal');
-    
+
     if (titleColor) {
         titleColor.value = certConfig.colors.title;
         if (titleColorVal) titleColorVal.innerText = certConfig.colors.title;
@@ -73,6 +76,39 @@ function resetColor(type) {
     renderPreview();
 }
 
+// ======================= ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ШАБЛОНОВ =======================
+function setTemplate(template) {
+    currentTemplate = template;
+    
+    // Обновляем активную кнопку
+    document.querySelectorAll('.btn-group button[id^="btn-template-"]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`btn-template-${template}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Автоматически применяем соответствующую рамку
+    if (template === 'participant' && certConfig.participantBg) {
+        certConfig.bgImage = certConfig.participantBg;
+    } else if (template === 'diploma' && certConfig.diplomaBg) {
+        certConfig.bgImage = certConfig.diplomaBg;
+    }
+    
+    // Обновляем радио-кнопки фона
+    const radioFile = document.querySelector('input[name="bgType"][value="file"]');
+    const radioUrl = document.querySelector('input[name="bgType"][value="url"]');
+    const radioNone = document.querySelector('input[name="bgType"][value="none"]');
+    
+    if (certConfig.bgImage) {
+        if (radioFile) radioFile.checked = true;
+    } else {
+        if (radioNone) radioNone.checked = true;
+    }
+    toggleBgInput();
+
+    renderPreview();
+}
+
 // ======================= ИНИЦИАЛИЗАЦИЯ =======================
 document.addEventListener('DOMContentLoaded', () => {
     // Загрузка цветов из localStorage
@@ -86,8 +122,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    syncColorPickersFromConfig();
+    // Загрузка рамок из localStorage
+    const savedParticipantBg = localStorage.getItem('participantBg');
+    const savedDiplomaBg = localStorage.getItem('diplomaBg');
+    if (savedParticipantBg) {
+        certConfig.participantBg = savedParticipantBg;
+    }
+    if (savedDiplomaBg) {
+        certConfig.diplomaBg = savedDiplomaBg;
+    }
     
+    syncColorPickersFromConfig();
+
     // Добавляем обработчики изменения цвета
     const colorElements = [
         { id: 'titleColor', key: 'title' },
@@ -95,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'bodyColor', key: 'body' },
         { id: 'footerColor', key: 'footer' }
     ];
-    
+
     colorElements.forEach(item => {
         const el = document.getElementById(item.id);
         if (el) {
@@ -108,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
-    
+
     // Загрузка данных из localStorage
     const stored = localStorage.getItem('excelDataForCertificate');
     if (stored) {
@@ -131,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         localStorage.setItem('excelDataForCertificate', JSON.stringify(tableData));
     }
+    
     renderTable();
     renderPreview();
 });
@@ -188,30 +235,48 @@ function toggleBgInput() {
 function handleBgFile(input) {
     if (!input.files || !input.files[0]) return;
     const reader = new FileReader();
-    reader.onload = (e) => { 
-        certConfig.bgImage = e.target.result; 
-        renderPreview(); 
+    reader.onload = (e) => {
+        // Сохраняем в соответствующий шаблон
+        if (currentTemplate === 'participant') {
+            certConfig.participantBg = e.target.result;
+            certConfig.bgImage = e.target.result;
+            localStorage.setItem('participantBg', e.target.result);
+        } else if (currentTemplate === 'diploma') {
+            certConfig.diplomaBg = e.target.result;
+            certConfig.bgImage = e.target.result;
+            localStorage.setItem('diplomaBg', e.target.result);
+        }
+        renderPreview();
     };
     reader.readAsDataURL(input.files[0]);
 }
 
-function handleBgUrl(url) { 
+function handleBgUrl(url) {
     if (url) {
-        certConfig.bgImage = url.trim(); 
+        if (currentTemplate === 'participant') {
+            certConfig.participantBg = url.trim();
+            certConfig.bgImage = url.trim();
+            localStorage.setItem('participantBg', url.trim());
+        } else if (currentTemplate === 'diploma') {
+            certConfig.diplomaBg = url.trim();
+            certConfig.bgImage = url.trim();
+            localStorage.setItem('diplomaBg', url.trim());
+        }
         renderPreview();
     }
 }
 
-function clearBg() { 
-    certConfig.bgImage = null; 
-    renderPreview(); 
+function clearBg() {
+    certConfig.bgImage = null;
+    const radio = document.querySelector('input[name="bgType"][value="none"]');
+    if (radio) radio.checked = true;
+    renderPreview();
 }
 
 function updateSizeSettings() {
     const sizeSelect = document.getElementById('sizeSelect');
     const customDiv = document.getElementById('customSizeDiv');
     if (!sizeSelect) return;
-    
     const val = sizeSelect.value;
     if (val === 'custom') {
         if (customDiv) customDiv.style.display = 'flex';
@@ -280,9 +345,8 @@ function saveAndRenderTable() {
 function renderTable() {
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    
     if (!thead || !tbody) return;
-    
+
     if (tableData.length === 0) {
         thead.innerHTML = '<th>Нет данных</th>';
         tbody.innerHTML = '';
@@ -313,15 +377,15 @@ function renderTable() {
             ).join('')}
             <td style="width: 40px; text-align: center;">
                 <button class="del-row-btn" onclick="deleteRow(${realIdx})">❌</button>
-             </td>
-        <tr>`;
+            </td>
+        </tr>`;
     }).join('');
 
     document.querySelectorAll('td[contenteditable="true"]').forEach(td => {
         td.removeEventListener('blur', handleCellBlur);
         td.addEventListener('blur', handleCellBlur);
     });
-    
+
     updatePaginationUI();
 }
 
@@ -348,7 +412,6 @@ function updatePaginationUI() {
     const pageInfo = document.getElementById('pageInfo');
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
-    
     if (pageInfo) pageInfo.textContent = `Страница ${currentPage + 1} из ${totalPages}`;
     if (prevBtn) prevBtn.disabled = currentPage === 0;
     if (nextBtn) nextBtn.disabled = currentPage >= totalPages - 1;
@@ -368,7 +431,6 @@ function changePage(delta) {
 function renderPreview() {
     const container = document.getElementById('certificatePreview');
     if (!container) return;
-    
     container.innerHTML = '';
 
     const maxWidth = Math.min(container.parentElement?.clientWidth - 40 || 800, 800);
@@ -381,10 +443,18 @@ function renderPreview() {
     container.style.position = 'relative';
     container.style.background = '#fff';
 
-    if (certConfig.bgImage) {
+    // Определяем какую рамку использовать (приоритет: рамка шаблона > общий фон)
+    let bgImageToUse = certConfig.bgImage;
+    if (currentTemplate === 'participant' && certConfig.participantBg) {
+        bgImageToUse = certConfig.participantBg;
+    } else if (currentTemplate === 'diploma' && certConfig.diplomaBg) {
+        bgImageToUse = certConfig.diplomaBg;
+    }
+
+    if (bgImageToUse) {
         const img = document.createElement('img');
-        img.src = certConfig.bgImage;
-        img.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:0;';
+        img.src = bgImageToUse;
+        img.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; object-fit:fill; z-index:0;';
         img.crossOrigin = "anonymous";
         container.appendChild(img);
     }
@@ -392,30 +462,120 @@ function renderPreview() {
     const row = tableData[1] || tableData[0] || ['Имя', 'Описание'];
     const content = document.createElement('div');
     content.style.cssText = `
-        position: relative; z-index: 1; padding: 40px; width: 100%; height: 100%;
+        position: relative; z-index: 1; padding: 60px; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center;
         text-align: ${certConfig.align};
         align-items: ${certConfig.align === 'left' ? 'flex-start' : certConfig.align === 'right' ? 'flex-end' : 'center'};
         box-sizing: border-box;
     `;
-    
+
     const name = row[0] || 'Имя Участника';
     const body = row.slice(1).join('<br>') || 'Описание курса';
 
-    content.innerHTML = `
-        <div style="font-size: 36px; font-weight: bold; color: ${certConfig.colors.title}; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px;">СЕРТИФИКАТ</div>
-        <div style="font-size: 30px; color: ${certConfig.colors.name}; margin-bottom: 20px; font-style: italic; border-bottom: 2px solid ${certConfig.colors.name}; display: inline-block; padding-bottom: 5px;">${escapeHtml(name)}</div>
-        <div style="font-size: 16px; color: ${certConfig.colors.body}; line-height: 1.6; margin-bottom: 40px; white-space: pre-wrap;">${escapeHtml(body)}</div>
-        <div style="margin-top: auto; display: flex; justify-content: space-between; font-size: 14px; color: ${certConfig.colors.footer}; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px;">
-            <span>Дата: ${new Date().toLocaleDateString('ru-RU')}</span>
-            <span>Подпись: _________________</span>
-        </div>
-    `;
+    // Шаблон 1: СЕРТИФИКАТ УЧАСТНИКА
+    if (currentTemplate === 'participant') {
+        content.innerHTML = `
+            <div style="display:flex; align-items:center; margin-bottom:20px;">
+                <div style="background:#2980b9; color:#fff; padding:10px 20px; border-radius:8px; margin-right:15px;">
+                    <div style="font-size:14px; font-weight:bold;">ART-</div>
+                    <div style="font-size:14px; font-weight:bold;">DESIGN</div>
+                </div>
+                <div style="flex:1; text-align:center;">
+                    <div style="font-size:28px; font-weight:bold; background:linear-gradient(90deg, #2980b9, #9b59b6, #e74c3c, #f1c40f, #2ecc71); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
+                        ART-DESIGN
+                    </div>
+                </div>
+            </div>
+            <div style="font-size: 48px; font-weight: bold; color: ${certConfig.colors.title}; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 3px;">
+                СЕРТИФИКАТ
+            </div>
+            <div style="font-size: 28px; color: ${certConfig.colors.title}; margin-bottom: 30px; font-weight: 500;">
+                участника
+            </div>
+            <div style="font-size: 16px; color: ${certConfig.colors.body}; line-height: 1.8; margin-bottom: 15px; text-align: center;">
+                Настоящий сертификат подтверждает, что
+            </div>
+            <div style="font-size: 32px; color: ${certConfig.colors.name}; margin-bottom: 25px; font-weight: bold; border-bottom: 3px solid ${certConfig.colors.name}; display: inline-block; padding-bottom: 8px; min-width: 300px;">
+                ${escapeHtml(name)}
+            </div>
+            <div style="font-size: 16px; color: ${certConfig.colors.body}; line-height: 1.8; margin-bottom: 40px; text-align: center;">
+                принял(а) участие в образовательной программе <br>
+                и успешно освоил(а) курс
+            </div>
+            <div style="font-size: 18px; color: ${certConfig.colors.body}; line-height: 1.6; margin-bottom: 50px; white-space: pre-wrap; text-align: center; font-weight: 500;">
+                ${escapeHtml(body)}
+            </div>
+            <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: 14px; color: ${certConfig.colors.footer}; border-top: 2px solid rgba(0,0,0,0.1); padding-top: 20px; width: 100%;">
+                <div style="text-align: center;">
+                    <div style="font-family: 'Brush Script MT', cursive; font-size: 32px; margin-bottom: 5px;">_______________</div>
+                    <div>г. Сургут, 2025</div>
+                </div>
+                <div style="text-align: right;">
+                    <div>Директор</div>
+                    <div>АНО ДПО</div>
+                    <div style="font-weight: bold;">"Форсайт"</div>
+                </div>
+            </div>
+        `;
+    } 
+    // Шаблон 2: ДИПЛОМ
+    else if (currentTemplate === 'diploma') {
+        content.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 56px; font-weight: bold; color: ${certConfig.colors.title}; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);">
+                    ДИПЛОМ
+                </div>
+                <div style="font-size: 24px; color: ${certConfig.colors.title}; margin-bottom: 40px; font-weight: 300;">
+                    о профессиональной переподготовке
+                </div>
+            </div>
+            
+            <div style="font-size: 18px; color: ${certConfig.colors.body}; line-height: 2; margin-bottom: 20px; text-align: center;">
+                Настоящим подтверждается, что
+            </div>
+            
+            <div style="font-size: 42px; color: ${certConfig.colors.name}; margin-bottom: 30px; font-weight: bold; border-bottom: 4px solid ${certConfig.colors.name}; display: inline-block; padding-bottom: 12px; min-width: 400px; text-transform: uppercase;">
+                ${escapeHtml(name)}
+            </div>
+            
+            <div style="font-size: 17px; color: ${certConfig.colors.body}; line-height: 2; margin-bottom: 40px; text-align: center;">
+                успешно прошёл(ла) курс профессиональной переподготовки<br>
+                по программе дополнительного образования
+            </div>
+            
+            <div style="font-size: 22px; color: ${certConfig.colors.title}; line-height: 1.8; margin-bottom: 60px; white-space: pre-wrap; text-align: center; font-weight: 600; background: rgba(255,255,255,0.7); padding: 20px; border-radius: 10px;">
+                ${escapeHtml(body)}
+            </div>
+            
+            <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: 14px; color: ${certConfig.colors.footer}; border-top: 3px solid rgba(0,0,0,0.2); padding-top: 25px; width: 100%;">
+                <div style="text-align: left;">
+                    <div style="margin-bottom: 30px;">Дата выдачи: _______________</div>
+                    <div>Регистрационный номер: _______________</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-family: 'Brush Script MT', cursive; font-size: 32px; margin-bottom: 5px; color: ${certConfig.colors.title};">В. В. Гартунг</div>
+                    <div>Директор АНО ДПО "Форсайт"</div>
+                </div>
+            </div>
+        `;
+    }
+
     container.appendChild(content);
 }
 
 // ======================= ГЕНЕРАЦИЯ СЕРТИФИКАТОВ =======================
 async function generateCertificates() {
+    // Проверка наличия необходимых библиотек
+    if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+        alert('Не загружены библиотеки для генерации. Проверьте подключение html2canvas и jsPDF.');
+        const btn = document.getElementById('generateCertBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '📥 Скачать сертификаты';
+        }
+        return;
+    }
+
     const dataRows = tableData.slice(1).filter(r => r && r.some(c => c && String(c).trim()));
     if (dataRows.length === 0) {
         alert("Нет данных для генерации!");
@@ -424,9 +584,9 @@ async function generateCertificates() {
 
     const btn = document.getElementById('generateCertBtn');
     if (!btn) return;
-    
     btn.disabled = true;
     btn.textContent = '⏳ Подготовка...';
+
     const formatSelect = document.getElementById('exportFormat');
     const format = formatSelect ? formatSelect.value : 'pdf';
 
@@ -448,10 +608,18 @@ async function generateCertificates() {
             const wrapper = document.createElement('div');
             wrapper.style.cssText = `width:${wPx}px;height:${hPx}px;position:relative;background:#fff;overflow:hidden;font-family:'Segoe UI',sans-serif;`;
             
-            if (certConfig.bgImage) {
+            // Определяем рамку для текущего шаблона (приоритет: рамка шаблона > общий фон)
+            let bgImageToUse = certConfig.bgImage;
+            if (currentTemplate === 'participant' && certConfig.participantBg) {
+                bgImageToUse = certConfig.participantBg;
+            } else if (currentTemplate === 'diploma' && certConfig.diplomaBg) {
+                bgImageToUse = certConfig.diplomaBg;
+            }
+            
+            if (bgImageToUse) {
                 const bg = document.createElement('img');
-                bg.src = certConfig.bgImage;
-                bg.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;';
+                bg.src = bgImageToUse;
+                bg.style.cssText = 'width:100%;height:100%;object-fit:fill;position:absolute;top:0;left:0;';
                 bg.crossOrigin = "anonymous";
                 wrapper.appendChild(bg);
                 await new Promise((resolve) => {
@@ -459,9 +627,9 @@ async function generateCertificates() {
                     else bg.onload = resolve;
                 });
             }
-
+        
             const contentDiv = document.createElement('div');
-            const paddingPx = 40 * scale;
+            const paddingPx = 60 * scale;
             contentDiv.style.cssText = `
                 position: relative; z-index: 2; padding: ${paddingPx}px;
                 display: flex; flex-direction: column; justify-content: center;
@@ -474,15 +642,92 @@ async function generateCertificates() {
             const nameValue = row[0] || 'Участник';
             const bodyValue = row.slice(1).filter(v => v && String(v).trim()).join('<br>') || 'Завершил(а) курс успешно';
             
-            contentDiv.innerHTML = `
-                <div style="font-size:${36 * scale}px;font-weight:bold;color:${certConfig.colors.title};margin-bottom:${15 * scale}px;text-transform:uppercase;letter-spacing:2px;">СЕРТИФИКАТ</div>
-                <div style="font-size:${30 * scale}px;color:${certConfig.colors.name};margin-bottom:${20 * scale}px;font-style:italic;border-bottom:2px solid ${certConfig.colors.name};display:inline-block;padding-bottom:${5 * scale}px;">${escapeHtml(nameValue)}</div>
-                <div style="font-size:${18 * scale}px;color:${certConfig.colors.body};line-height:1.6;margin-bottom:${40 * scale}px;white-space:pre-wrap;">${escapeHtml(bodyValue)}</div>
-                <div style="margin-top:auto;display:flex;justify-content:space-between;font-size:${15 * scale}px;color:${certConfig.colors.footer};border-top:1px solid rgba(0,0,0,0.15);padding-top:${15 * scale}px;">
-                    <span>Дата: ${new Date().toLocaleDateString('ru-RU')}</span>
-                    <span>Подпись: _________________</span>
-                </div>
-            `;
+            // Генерация контента в зависимости от шаблона
+            if (currentTemplate === 'participant') {
+                contentDiv.innerHTML = `
+                    <div style="display:flex; align-items:center; margin-bottom:${20*scale}px;">
+                        <div style="background:#2980b9; color:#fff; padding:${10*scale}px ${20*scale}px; border-radius:${8*scale}px; margin-right:${15*scale}px;">
+                            <div style="font-size:${14*scale}px; font-weight:bold;">ART-</div>
+                            <div style="font-size:${14*scale}px; font-weight:bold;">DESIGN</div>
+                        </div>
+                        <div style="flex:1; text-align:center;">
+                            <div style="font-size:${28*scale}px; font-weight:bold; background:linear-gradient(90deg, #2980b9, #9b59b6, #e74c3c, #f1c40f, #2ecc71); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
+                                ART-DESIGN
+                            </div>
+                        </div>
+                    </div>
+                    <div style="font-size: ${48*scale}px; font-weight: bold; color: ${certConfig.colors.title}; margin-bottom: ${10*scale}px; text-transform: uppercase; letter-spacing: 3px;">
+                        СЕРТИФИКАТ
+                    </div>
+                    <div style="font-size: ${28*scale}px; color: ${certConfig.colors.title}; margin-bottom: ${30*scale}px; font-weight: 500;">
+                        участника
+                    </div>
+                    <div style="font-size: ${16*scale}px; color: ${certConfig.colors.body}; line-height: 1.8; margin-bottom: ${15*scale}px; text-align: center;">
+                        Настоящий сертификат подтверждает, что
+                    </div>
+                    <div style="font-size: ${32*scale}px; color: ${certConfig.colors.name}; margin-bottom: ${25*scale}px; font-weight: bold; border-bottom: 3px solid ${certConfig.colors.name}; display: inline-block; padding-bottom: ${8*scale}px; min-width: ${300*scale}px;">
+                        ${escapeHtml(nameValue)}
+                    </div>
+                    <div style="font-size: ${16*scale}px; color: ${certConfig.colors.body}; line-height: 1.8; margin-bottom: ${40*scale}px; text-align: center;">
+                        принял(а) участие в образовательной программе <br>
+                        и успешно освоил(а) курс
+                    </div>
+                    <div style="font-size: ${18*scale}px; color: ${certConfig.colors.body}; line-height: 1.6; margin-bottom: ${50*scale}px; white-space: pre-wrap; text-align: center; font-weight: 500;">
+                        ${escapeHtml(bodyValue)}
+                    </div>
+                    <div style="margin-top:auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: ${14*scale}px; color: ${certConfig.colors.footer}; border-top: 2px solid rgba(0,0,0,0.1); padding-top: ${20*scale}px; width: 100%;">
+                        <div style="text-align: center;">
+                            <div style="font-family: 'Brush Script MT', cursive; font-size: ${32*scale}px; margin-bottom: ${5*scale}px;">_______________</div>
+                            <div>г. Сургут, 2025</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div>Директор</div>
+                            <div>АНО ДПО</div>
+                            <div style="font-weight: bold;">"Форсайт"</div>
+                        </div>
+                    </div>
+                `;
+            } else if (currentTemplate === 'diploma') {
+                contentDiv.innerHTML = `
+                    <div style="margin-bottom: ${20*scale}px;">
+                        <div style="font-size: ${56*scale}px; font-weight: bold; color: ${certConfig.colors.title}; margin-bottom: ${20*scale}px; text-transform: uppercase; letter-spacing: ${5*scale}px; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);">
+                            ДИПЛОМ
+                        </div>
+                        <div style="font-size: ${24*scale}px; color: ${certConfig.colors.title}; margin-bottom: ${40*scale}px; font-weight: 300;">
+                            о профессиональной переподготовке
+                        </div>
+                    </div>
+                    
+                    <div style="font-size: ${18*scale}px; color: ${certConfig.colors.body}; line-height: 2; margin-bottom: ${20*scale}px; text-align: center;">
+                        Настоящим подтверждается, что
+                    </div>
+                    
+                    <div style="font-size: ${42*scale}px; color: ${certConfig.colors.name}; margin-bottom: ${30*scale}px; font-weight: bold; border-bottom: 4px solid ${certConfig.colors.name}; display: inline-block; padding-bottom: ${12*scale}px; min-width: ${400*scale}px; text-transform: uppercase;">
+                        ${escapeHtml(nameValue)}
+                    </div>
+                    
+                    <div style="font-size: ${17*scale}px; color: ${certConfig.colors.body}; line-height: 2; margin-bottom: ${40*scale}px; text-align: center;">
+                        успешно прошёл(ла) курс профессиональной переподготовки<br>
+                        по программе дополнительного образования
+                    </div>
+                    
+                    <div style="font-size: ${22*scale}px; color: ${certConfig.colors.title}; line-height: 1.8; margin-bottom: ${60*scale}px; white-space: pre-wrap; text-align: center; font-weight: 600; background: rgba(255,255,255,0.7); padding: ${20*scale}px; border-radius: ${10*scale}px;">
+                        ${escapeHtml(bodyValue)}
+                    </div>
+                    
+                    <div style="margin-top:auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: ${14*scale}px; color: ${certConfig.colors.footer}; border-top: 3px solid rgba(0,0,0,0.2); padding-top: ${25*scale}px; width: 100%;">
+                        <div style="text-align: left;">
+                            <div style="margin-bottom: ${30*scale}px;">Дата выдачи: _______________</div>
+                            <div>Регистрационный номер: _______________</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-family: 'Brush Script MT', cursive; font-size: ${32*scale}px; margin-bottom: ${5*scale}px; color: ${certConfig.colors.title};">В. В. Гартунг</div>
+                            <div>Директор АНО ДПО "Форсайт"</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
             wrapper.appendChild(contentDiv);
             tempDiv.appendChild(wrapper);
             
@@ -500,12 +745,14 @@ async function generateCertificates() {
                 const pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: [certConfig.width, certConfig.height] });
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
                 pdf.addImage(imgData, 'JPEG', 0, 0, certConfig.width, certConfig.height);
-                files.push({ data: pdf.output('blob'), name: `Сертификат_${i+1}.pdf` });
+                const certName = currentTemplate === 'participant' ? 'Сертификат' : 'Диплом';
+                files.push({ data: pdf.output('blob'), name: `${certName}_${i+1}.pdf` });
             } else {
                 const mime = format === 'png' ? 'image/png' : 'image/jpeg';
-                const ext = format === 'png' ? 'png' : 'jpg';
+                const ext = format === 'png' ? 'png' : 'jpg'; 
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, mime, 0.95));
-                files.push({ data: blob, name: `Сертификат_${i+1}.${ext}` });
+                const certName = currentTemplate === 'participant' ? 'Сертификат' : 'Диплом';
+                files.push({ data: blob, name: `${certName}_${i+1}.${ext}` });
             }
             
             tempDiv.innerHTML = '';
@@ -515,7 +762,7 @@ async function generateCertificates() {
             const zip = new JSZip();
             files.forEach(f => zip.file(f.name, f.data));
             const zipBlob = await zip.generateAsync({ type: 'blob' });
-            downloadFile(zipBlob, 'Сертификаты.zip');
+            downloadFile(zipBlob, currentTemplate === 'participant' ? 'Сертификаты.zip' : 'Дипломы.zip');
         } else if (files.length === 1) {
             downloadFile(files[0].data, files[0].name);
         } else {
