@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор Сертификатов — Полная настройка стилей</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+    <h1>📜 Генератор Сертификатов</h1>
+
+    <!-- Таблица данных -->
+    <div class="table-section">
+        <div class="table-header">
+            <h2>📊 Данные сертификатов</h2>
+            <div class="table-controls">
+                <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden-input">
+                <button class="sec-btn" onclick="document.getElementById('excelFile').click()">📂 Загрузить Excel</button>
+                <button class="info-btn" onclick="addColumn()">➕ Колонка</button>
+                <button class="danger-btn" onclick="resetTable()">↺ Сброс</button>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <table id="dataTable">
+                <thead><tr id="tableHead"><tr></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <button class="page-btn" id="prevBtn" onclick="changePage(-1)" disabled>⬅️</button>
+            <span class="page-info" id="pageInfo">0 / 0</span>
+            <button class="page-btn" id="nextBtn" onclick="changePage(1)" disabled>➡️</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Панель настроек -->
+        <div class="settings-panel">
+            <h2>⚙️ Настройки</h2>
+            
+            <div class="control-group">
+                <label>Выравнивание текста:</label>
+                <div class="btn-group">
+                    <button onclick="setAlign('left')" id="btn-left">← Слева</button>
+                    <button onclick="setAlign('center')" id="btn-center" class="active">↔ Центр</button>
+                    <button onclick="setAlign('right')" id="btn-right">→ Справа</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Размер (мм):</label>
+                <select id="sizeSelect" onchange="updateSizeSettings()">
+                    <option value="a4-l" selected>A4 Альбомный (297 × 210)</option>
+                    <option value="a4-p">A4 Книжный (210 × 297)</option>
+                    <option value="custom">Свой размер...</option>
+                </select>
+                <div id="customSizeDiv" style="display: none; gap: 5px; flex-wrap: wrap; margin-top: 5px;">
+                    <input type="number" id="customW" placeholder="Ширина" value="400">
+                    <input type="number" id="customH" placeholder="Высота" value="200">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Фон сертификата:</label>
+                <div class="bg-option-group">
+                    <label><input type="radio" name="bgType" value="file" checked onchange="toggleBgInput()"> 🖼️ Файл</label>
+                    <label><input type="radio" name="bgType" value="url" onchange="toggleBgInput()"> 🔗 Ссылка</label>
+                </div>
+                <input type="file" id="bgFileInput" accept="image/*" class="sec-btn" style="padding: 5px; font-size: 12px;" onchange="handleBgFile(this)">
+                <input type="text" id="bgUrlInput" placeholder="Введите URL картинки..." style="display: none;" onblur="handleBgUrl(this.value)">
+                <button class="danger-btn" onclick="clearBg()">❌ Сбросить фон</button>
+            </div>
+
+            <!-- НОВЫЙ БЛОК: НАСТРОЙКА ЦВЕТОВ ТЕКСТА -->
+            <div class="control-group">
+                <label>🎨 Цвета текста:</label>
+                <div class="color-picker-group">
+                    <div class="color-row">
+                        <label>Заголовок «СЕРТИФИКАТ»:</label>
+                        <input type="color" id="titleColor" value="#2c3e50">
+                        <span id="titleColorVal">#2c3e50</span>
+                        <button class="reset-color-btn" onclick="resetColor('title')">↺</button>
+                    </div>
+                    <div class="color-row">
+                        <label>Имя участника:</label>
+                        <input type="color" id="nameColor" value="#2980b9">
+                        <span id="nameColorVal">#2980b9</span>
+                        <button class="reset-color-btn" onclick="resetColor('name')">↺</button>
+                    </div>
+                    <div class="color-row">
+                        <label>Основной текст (описание):</label>
+                        <input type="color" id="bodyColor" value="#555555">
+                        <span id="bodyColorVal">#555555</span>
+                        <button class="reset-color-btn" onclick="resetColor('body')">↺</button>
+                    </div>
+                    <div class="color-row">
+                        <label>Подпись / дата:</label>
+                        <input type="color" id="footerColor" value="#777777">
+                        <span id="footerColorVal">#777777</span>
+                        <button class="reset-color-btn" onclick="resetColor('footer')">↺</button>
+                    </div>
+                    <div class="label-hint">💡 Цвета обновляются в предпросмотре</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Формат сохранения:</label>
+                <select id="exportFormat">
+                    <option value="pdf">📄 PDF Документ</option>
+                    <option value="jpg">🖼️ JPG Изображение</option>
+                    <option value="png">🖼️ PNG Изображение</option>
+                </select>
+            </div>
+
+            <button class="main-btn" id="generateCertBtn" disabled onclick="generateCertificates()">📥 Скачать сертификаты</button>
+            <div class="hint" id="hintText">Загрузите Excel для начала</div>
+        </div>
+
+        <!-- Предпросмотр -->
+        <div class="preview-area">
+            <h3>Предпросмотр (1 стр.)</h3>
+            <div id="certificatePreview" class="cert-wrapper"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
