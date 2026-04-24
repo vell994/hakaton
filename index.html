@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Генератор Сертификатов </title>
+    <title>Генератор Сертификатов</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -11,108 +11,105 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
-    <h1>📜 Генератор Сертификата участника · АРТ-ДИЗАЙН</h1>
+    <h1>📜 Генератор Сертификатов</h1>
     
-    <div class="main-container">
-        <!-- Таблица данных -->
-        <div class="table-section">
-            <h2>📊 Данные сертификатов</h2>
-            <div class="table-header">
-                <div class="table-controls">
-                    <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none">
-                    <button class="sec-btn" onclick="document.getElementById('excelFile').click()">📂 Загрузить Excel</button>
-                    <button class="sec-btn" onclick="addColumn()">➕ Колонка</button>
-                    <button class="danger-btn" onclick="resetTable()">↺ Сброс</button>
-                </div>
-                <div class="pagination">
-                    <button class="page-btn" id="prevBtn" onclick="changePage(-1)">◀ Назад</button>
-                    <span class="page-info" id="pageInfo">0 / 0</span>
-                    <button class="page-btn" id="nextBtn" onclick="changePage(1)">Вперед ▶</button>
-                </div>
-            </div>
-            <div class="table-container">
-                <table>
-                    <thead id="tableHead"></thead>
-                    <tbody id="tableBody"></tbody>
-                </table>
+    <div class="table-section">
+        <h2>📊 Данные сертификатов</h2>
+        <div class="table-header">
+            <div class="table-controls">
+                <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden-input">
+                <button class="info-btn" onclick="document.getElementById('excelFile').click()">📂 Загрузить Excel</button>
+                <button class="sec-btn" onclick="addColumn()">➕ Колонка</button>
+                <button class="danger-btn" onclick="resetTable()">↺ Сброс</button>
             </div>
         </div>
+        <div class="table-container">
+            <table>
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            <button id="prevBtn" class="page-btn" onclick="changePage(-1)">⬅️</button>
+            <span id="pageInfo" class="page-info">0 / 0</span>
+            <button id="nextBtn" class="page-btn" onclick="changePage(1)">➡️</button>
+        </div>
+        <p id="hintText" class="hint">Загрузите Excel или добавьте данные вручную</p>
+    </div>
 
-        <!-- Панель настроек -->
+    <div class="bottom-layout">
         <div class="settings-panel">
             <h2>⚙️ Настройки</h2>
-
+            
             <div class="control-group">
-                <label>🏆 Степень (место)</label>
-                <select id="degreeSelect">
-                    <option value="none">Без степени</option>
-                    <option value="1">🥇 Первое место</option>
-                    <option value="2">🥈 Второе место</option>
-                    <option value="3">🥉 Третье место</option>
+                <label>🏆 Степень / Место:</label>
+                <label style="display:block; margin-bottom:5px; cursor:pointer;">
+                    <input type="checkbox" id="showDegree" checked onchange="toggleDegree()"> Показать степень
+                </label>
+                <select id="degreeSelect" onchange="updateDegree()">
+                    <option value="1 место">🥇 1 место</option>
+                    <option value="2 место">🥈 2 место</option>
+                    <option value="3 место">🥉 3 место</option>
+                    <option value="custom">✏️ Своё название...</option>
                 </select>
+                <input type="text" id="customDegreeInput" placeholder="Введите текст степени" style="display:none; margin-top:5px;" oninput="updateDegreeCustom(this.value)">
             </div>
 
             <div class="control-group">
-                <label>🖼️ Фон сертификата</label>
-                <input type="file" id="bgImageFile" accept="image/*">
-                <button class="sec-btn" id="clearBgBtn" style="margin-top:5px;">❌ Сбросить фон</button>
-            </div>
-
-            <div class="control-group">
-                <label>✏️ Дополнительный текст (подпись / низ)</label>
-                <input type="text" id="footerText" placeholder="Текст внизу сертификата" value="Директор АНО ДПО &quot;Форсайт&quot; В. В. Гартунг">
-            </div>
-
-            <div class="control-group">
-                <label>Выравнивание текста</label>
+                <label>Выравнивание текста:</label>
                 <div class="btn-group">
-                    <button id="btn-align-left" onclick="setAlign('left')">← Слева</button>
-                    <button id="btn-align-center" class="active" onclick="setAlign('center')">↔ Центр</button>
-                    <button id="btn-align-right" onclick="setAlign('right')">→ Справа</button>
+                    <button id="btn-left" onclick="setAlign('left')">← Слева</button>
+                    <button id="btn-center" class="active" onclick="setAlign('center')">↔ Центр</button>
+                    <button id="btn-right" onclick="setAlign('right')">→ Справа</button>
                 </div>
             </div>
-
+            
             <div class="control-group">
-                <label>Размер (мм)</label>
+                <label>Размер (мм):</label>
                 <select id="sizeSelect" onchange="updateSizeSettings()">
-                    <option value="a4-l">A4 Альбомный (297×210)</option>
-                    <option value="a4-p">A4 Книжный (210×297)</option>
+                    <option value="a4-l">A4 Альбомный (297 × 210)</option>
+                    <option value="a4-p">A4 Книжный (210 × 297)</option>
                     <option value="custom">Свой размер...</option>
                 </select>
-                <div id="customSizeDiv" style="display:none; gap:10px; margin-top:8px;">
-                    <input type="number" id="customW" placeholder="Ширина (мм)" value="400">
-                    <input type="number" id="customH" placeholder="Высота (мм)" value="200">
-                    <button class="sec-btn" id="applyCustomSize" style="padding:4px;">Применить</button>
+                <div id="customSizeDiv" style="display:none; gap:5px; margin-top:5px;">
+                    <input type="number" id="customW" placeholder="Ширина" value="140">
+                    <input type="number" id="customH" placeholder="Высота" value="90">
                 </div>
             </div>
 
             <div class="control-group">
-                <label>🎨 Цвета текста</label>
-                <div class="color-picker-group">
-                    <div class="color-row"><label>Заголовок</label><input type="color" id="titleColor" value="#8e44ad"><span id="titleColorVal">#8e44ad</span><button class="reset-color-btn" onclick="resetColor('title')">↺</button></div>
-                    <div class="color-row"><label>Степень</label><input type="color" id="degreeColor" value="#e67e22"><span id="degreeColorVal">#e67e22</span><button class="reset-color-btn" onclick="resetColor('degree')">↺</button></div>
-                    <div class="color-row"><label>Имя / ФИО</label><input type="color" id="nameColor" value="#2c3e50"><span id="nameColorVal">#2c3e50</span><button class="reset-color-btn" onclick="resetColor('name')">↺</button></div>
-                    <div class="color-row"><label>Основной текст</label><input type="color" id="bodyColor" value="#333333"><span id="bodyColorVal">#333333</span><button class="reset-color-btn" onclick="resetColor('body')">↺</button></div>
-                    <div class="color-row"><label>Нижний текст</label><input type="color" id="footerColor" value="#7f8c8d"><span id="footerColorVal">#7f8c8d</span><button class="reset-color-btn" onclick="resetColor('footer')">↺</button></div>
+                <label>Фон сертификата:</label>
+                <div class="bg-option-group">
+                    <label><input type="radio" name="bgType" value="file" onchange="toggleBgInput()"> 🖼️ Файл</label>
+                    <label><input type="radio" name="bgType" value="url" onchange="toggleBgInput()"> 🔗 Ссылка</label>
                 </div>
+                <input type="file" id="bgFileInput" accept="image/*" style="display:none" onchange="handleBgFile(this)">
+                <input type="text" id="bgUrlInput" placeholder="https://example.com/bg.jpg" style="display:none" oninput="handleBgUrl(this.value)">
+                <button class="danger-btn" style="width:100%; margin-top:5px;" onclick="clearBg()">❌ Сбросить фон</button>
+            </div>
+            
+            <div class="color-picker-group">
+                <label style="display:block; margin-bottom:8px; font-weight:600;">🎨 Цвета текста:</label>
+                <div class="color-row"><label>Заголовок:</label><input type="color" id="titleColor"><span id="titleColorVal">#2c3e50</span><button class="reset-color-btn" onclick="resetColor('title')">↺</button></div>
+                <div class="color-row"><label>Степень:</label><input type="color" id="degreeColor"><span id="degreeColorVal">#e67e22</span><button class="reset-color-btn" onclick="resetColor('degree')">↺</button></div>
+                <div class="color-row"><label>Имя:</label><input type="color" id="nameColor"><span id="nameColorVal">#2980b9</span><button class="reset-color-btn" onclick="resetColor('name')">↺</button></div>
+                <div class="color-row"><label>Описание:</label><input type="color" id="bodyColor"><span id="bodyColorVal">#555555</span><button class="reset-color-btn" onclick="resetColor('body')">↺</button></div>
+                <div class="color-row"><label>Подпись/дата:</label><input type="color" id="footerColor"><span id="footerColorVal">#777777</span><button class="reset-color-btn" onclick="resetColor('footer')">↺</button></div>
             </div>
 
             <div class="control-group">
-                <label>Формат сохранения</label>
+                <label>Формат сохранения:</label>
                 <select id="exportFormat">
-                    <option value="pdf">📄 PDF</option>
-                    <option value="jpg">🖼️ JPG</option>
-                    <option value="png">🖼️ PNG</option>
+                    <option value="pdf">📄 PDF (Оптимизация листов)</option>
+                    <option value="jpg">🖼️ JPG Изображения</option>
+                    <option value="png">🖼️ PNG Изображения</option>
                 </select>
             </div>
-
-            <button id="generateCertBtn" class="main-btn" onclick="generateCertificates()" disabled>📥 Скачать сертификаты</button>
-            <div class="hint" id="hintText">Загрузите Excel или заполните таблицу</div>
+            <button id="generateCertBtn" class="main-btn" disabled onclick="generateCertificates()">📥 Скачать сертификаты</button>
         </div>
 
-        <!-- Предпросмотр -->
         <div class="preview-area">
-            <h2>👁️ Предпросмотр</h2>
+            <h2>Предпросмотр сертификата</h2>
             <div id="certificatePreview" class="cert-wrapper"></div>
         </div>
     </div>
